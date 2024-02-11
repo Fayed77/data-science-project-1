@@ -1,0 +1,143 @@
+---
+title: "COVID-19 And the Election: Who Made the Pandemic Worse? Republicans or Democrats? "
+author: "Fayed Khan Barno"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 4, fig.width = 6 )
+```
+
+
+```{r include = FALSE}
+library(tidyverse) 
+```
+
+
+
+
+According to time.com, “There’s a strong argument that the President’s delayed response and mishandling of the pandemic was the one thing during campaign season that no amount of his trademark misdirection could deflect.” Also, on Nov. 3, the day of the election, the counties that supported Trump had a collective rate of 38 new infections a day per 100,000 people, compared to 27 in every 100,000 people for counties that supported Biden. This might suggest, the election is or was one of the core events of 2020 that made the COVID-19 in the United States worse. But such is hard to understand without any tangible data that supports such a strong argument. This article will look at visually represented data that correlates to this argument and fact check what actually might have happened and provide better insight on why such might have happened. 
+
+
+```{r include = FALSE}
+Election<- read_csv("C:/Users/Fayed/Desktop/Assignments/CMSC 205/Project_2/2020_US_County_Level_Presidential_Results.csv")%>% mutate(county_fips=as.double(county_fips))
+head(Election)
+Education<- read_csv("C:/Users/Fayed/Desktop/Assignments/CMSC 205/Project_2/Education.csv")
+head(Education)
+Covid<- read_csv("C:/Users/Fayed/Desktop/Assignments/CMSC 205/Project_2/us-counties-covid.csv")%>%mutate(fips=as.double(fips))
+head(Covid)
+Alll<- read_csv("C:/Users/Fayed/Desktop/Assignments/CMSC 205/Project_2/cc-est2019-alldata.csv")
+head(Alll)
+
+```
+```{r include = FALSE}
+ALLL <- filter(Alll, YEAR==12)
+
+```
+```{r}
+All<- filter(ALLL,AGEGRP==0)
+
+```
+
+
+```{r include = FALSE}
+Election_Covid <- full_join(Election,Covid,by=c("county_fips"="fips"))
+
+EEB<- inner_join(Education,Election_Covid,by=c("FIPS Code"="county_fips")) 
+
+EECW<-inner_join(All,EEB,by=c("CTYNAME"="Area name"))%>%
+ select("State","county","diff","votes_gop","votes_dem","total_votes","confirmed_cases","TOT_POP","Less than a high school diploma, 2014-18","High school diploma only, 2014-18","Some college or associate's degree, 2014-18","Bachelor's degree or higher, 2014-18","Percent of adults with less than a high school diploma, 2014-18","Percent of adults with a high school diploma only, 2014-18",
+"Percent of adults completing some college or associate's degree, 2014-18","Percent of adults with a bachelor's degree or higher, 2014-18")
+EECW<-EECW %>% drop_na()
+
+write_csv(EECW,file="Project_2.csv")
+```
+
+
+
+```{r}
+EECW_tidy <- EECW %>% pivot_longer(cols = c("Percent of adults with less than a high school diploma, 2014-18",
+"Percent of adults completing some college or associate's degree, 2014-18","Percent of adults with a bachelor's degree or higher, 2014-18"),
+names_to = "Education_Type", values_to="Education_Perecentage")
+
+```
+
+
+
+```{r include = FALSE}
+EECW2_tidy<-EECW_tidy %>% mutate( Republican = (100*votes_gop)/total_votes,
+                       Democrat=(100*votes_dem)/total_votes,
+                       Republicans = (100*votes_gop)/total_votes,
+                       Democrats=(100*votes_dem)/total_votes,
+                       Republican_votes=votes_gop,
+                       Democrat_votes=votes_dem,
+                       
+                       votes_per= (100*total_votes)/sum(total_votes),
+                       percentage_cases_to_population= (100*confirmed_cases)/TOT_POP,
+                       percentage_vote_difference = (100*(Republican-Democrat))/TOT_POP,
+                       total_vote_percentage= (100*total_votes)/TOT_POP)
+                       
+
+
+
+```
+```{r include = FALSE}
+EECW_tidys <- EECW2_tidy %>% pivot_longer(cols = c("Republican","Democrat"),
+                                          names_to="Party",values_to = "Vote_Percentage")
+```
+
+```{r include = FALSE}
+EECW3_tidy <- filter(EECW_tidys,percentage_cases_to_population<=0.5 )%>%
+  arrange(desc(percentage_cases_to_population))
+
+```
+```{r include = FALSE}
+EECW4_tidy<- filter(EECW3_tidy,percentage_cases_to_population>0 ,Vote_Percentage<=100, Education_Perecentage<=100)
+```
+
+
+Votes and Percentage_votes:
+```{r}
+
+library(stargazer)
+
+cols <- c("Republican_votes","Democrat_votes","Republicans","Democrats")
+
+stargazer(
+    EECW3_tidys <- data.frame(EECW4_tidy)[,cols], type = "text", 
+    summary.stat = c("min", "p25", "median", "p75", "max", "median", "mean", "sd")
+    )
+
+```
+The presented table above contains summaries votes in number and in percentages to the total population of specific counties. Firstly, it is apparent that there is a significantly large variance in mean votes, with 2,245 more mean Republican Votes. This might suggest Republicans overall has more votes per county but also, notice that Democrats have a higher standard deviation of votes; which suggests their votes are more spread across in different counties rather than a single county. So, Biden (Democrat Party) has more votes on his side. This might suggest that Republicans are more responsible for the higher rate of infections. 
+
+```{r,fig.height=4.5, fig.width=10}
+ggplot(data=EECW4_tidy,) +
+geom_point(mapping = aes(x =Democrats, y = percentage_cases_to_population), color="Blue")+
+  labs(title="Percentage of COVID-19 Cases Varied by Decmocrat Voters:")+
+ 
+ylab("Percentage COVID-19 Cases to Total Population(Countywise)")+
+xlab("Percentage of Votes for Democratic Party")
+```
+```{r,fig.height=4.5, fig.width=10}
+ggplot(data=EECW4_tidy,) +
+geom_point(mapping = aes(x =Republicans, y = percentage_cases_to_population), color="Red")+
+  labs(title="Percentage of COVID-19 Cases Varied by Republican Voters:")+
+ 
+ylab("Percentage COVID-19 Cases to Total Population(Countywise)")+
+xlab("Percentage of Votes for Republican Party")
+```
+Looking at the two graphs above, we can see they are polar opposites of each. This is because almost 98.1 percent of all total votes in the Unites States were made to Democrat and Republican Party; which also was almost at a 50/50 proportion. Observing from the first graph, there’s a higher frequency of infections that occurred at lower percentages when voting for Democrats. But when voting for Republicans in the second graph there were more frequent infections at higher percentages. One thing this observation can suggest is that, when Republican supporters voted in higher amounts, they were less careful about safety protocols; because the more they voted the denser the second plot was. 
+
+```{r,fig.height=4.8, fig.width=10}
+ggplot(data=EECW4_tidy, aes(x=percentage_vote_difference))+ 
+
+geom_col(aes(y=percentage_cases_to_population), fill="black", color="Red")+
+  labs(title="Percentage of COVID-19 Cases Varied by Difference in Percentage Votes:")+
+ylab("Percentage COVID-19 Cases to Total Population(Countywise)")+
+xlab("Percentage of Votes Difference(Repiblican-Democratic Party)")
+```   
+The bar-chart contains the difference in Republican to Democrat Votes, so recalling from the two box-plots above; there will be more cases at first (Representing the Republican-vote-infections) followed by a slight drop in cases and then an increase of cases (Representing the Democrat-vote-infections). This confirms our theory from the first two figures. We have an increasing bar-plot that drops and increases again going from the higher Democrat votes to higher Republican votes. According to The Economic Times, 47 percent of Trump supporters are convinced that the pandemic was not under control compared to which 87 percent of Biden supporters said the pandemic was not under control. Also, about half of Trump supporters believed jobs and economy is America’s top issue where as compared to Biden voters 6 in 10 supporters believed the pandemic is America’s top issue.(source:)
+
+While these claims and graphically represented datasets in this article suggest most Republicans were less aware of the State’s situation and is mostly responsible for the rapid spread of the virus; there are a lot of other important factors that come into the equation when accessing such a vast situation. It’s imperative we become more aware of the situation we have in hand and work together to get this pandemic in control.
